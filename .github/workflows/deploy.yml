@@ -1,0 +1,56 @@
+name: Deploy Worker to Cloudflare
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "wrangler.jsonc"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "wrangler.jsonc"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+      # Note: Cloudflare Workers use a different URL structure than Pages (*.workers.dev). 
+      # The dynamic preview URL generation was removed here to prevent pipeline failures.
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Deploys a uniquely named worker for PR previews, and deploys to production on 'main' push
+          command: deploy ${{ github.event_name == 'pull_request' && format('--name {0}-pr-{1}', vars.PROJECT_NAME, github.event.pull_request.number) || '' }}
+          # Injects your Supabase secrets securely into the Worker environment
+          secrets: |
+            SUPABASE_URL
+            SUPABASE_SERVICE_ROLE_KEY
+        env:
+          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
