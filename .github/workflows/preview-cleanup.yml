@@ -1,0 +1,19 @@
+name: Delete preview Worker on PR close
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    # Only act on PRs targeting main so we mirror deploy.yml's scope.
+    if: github.event.pull_request.base.ref == 'main'
+    steps:
+      - name: Delete PR preview Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # `wrangler delete --name` without a local project; -y skips the confirmation prompt.
+          command: delete --name ${{ vars.PROJECT_NAME }}-pr-${{ github.event.pull_request.number }} -y
