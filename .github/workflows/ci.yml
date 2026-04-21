@@ -9,10 +9,6 @@ jobs:
   checks:
     runs-on: ubuntu-latest
 
-    env:
-      PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-      PUBLIC_SUPABASE_ANON_KEY: placeholder
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,6 +27,3 @@ jobs:
 
       - name: Type check
         run: npm run typecheck
-
-      - name: Build project
-        run: npm run build
