@@ -35,21 +35,21 @@ npm run cf-typegen
 
 ## Scripts
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Start the Worker locally via Wrangler (loads `.dev.vars`) |
-| `npm test` | Run Vitest suite inside the Workers runtime |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run format` / `npm run format:check` | Prettier |
-| `npm run deploy` | Deploy to Cloudflare |
-| `npm run cf-typegen` | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc` |
+| Command                                   | What it does                                                 |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| `npm run dev`                             | Start the Worker locally via Wrangler (loads `.dev.vars`)    |
+| `npm test`                                | Run Vitest suite inside the Workers runtime                  |
+| `npm run typecheck`                       | `tsc --noEmit`                                               |
+| `npm run format` / `npm run format:check` | Prettier                                                     |
+| `npm run deploy`                          | Deploy to Cloudflare                                         |
+| `npm run cf-typegen`                      | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc` |
 
 ## Routes
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/` | Service identity string |
-| `GET` | `/health` | Liveness probe; returns `{ status, timestamp }` |
+| Method | Path      | Description                                     |
+| ------ | --------- | ----------------------------------------------- |
+| `GET`  | `/`       | Service identity string                         |
+| `GET`  | `/health` | Liveness probe; returns `{ status, timestamp }` |
 
 Feature routes (telemetry, shelves, auth) will be added in follow-up branches.
 
