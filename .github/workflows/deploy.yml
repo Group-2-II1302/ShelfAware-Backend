@@ -4,19 +4,19 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "src/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.json"
-      - "wrangler.jsonc"
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'wrangler.jsonc'
   push:
     branches: [main]
     paths:
-      - "src/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.json"
-      - "wrangler.jsonc"
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'wrangler.jsonc'
   workflow_dispatch:
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
-      # Note: Cloudflare Workers use a different URL structure than Pages (*.workers.dev). 
+      # Note: Cloudflare Workers use a different URL structure than Pages (*.workers.dev).
       # The dynamic preview URL generation was removed here to prevent pipeline failures.
 
     steps:
@@ -35,7 +35,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci

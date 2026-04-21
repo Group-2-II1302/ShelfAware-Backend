@@ -1,7 +1,7 @@
 name: Task
 description: Technical work linked to a user story
-title: "[Task]: "
-labels: ["task"]
+title: '[Task]: '
+labels: ['task']
 body:
   - type: input
     id: id

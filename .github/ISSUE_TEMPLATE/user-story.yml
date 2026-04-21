@@ -1,7 +1,7 @@
 name: User Story
 description: Product backlog story
-title: "[title]: "
-labels: ["user-story"]
+title: '[title]: '
+labels: ['user-story']
 body:
   - type: input
     id: id
