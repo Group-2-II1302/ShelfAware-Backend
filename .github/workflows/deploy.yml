@@ -50,10 +50,12 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # Deploys a uniquely named worker for PR previews, and deploys to production on 'main' push
           command: deploy ${{ github.event_name == 'pull_request' && format('--name {0}-pr-{1}', vars.PROJECT_NAME, github.event.pull_request.number) || '' }}
-          # Injects your Supabase secrets securely into the Worker environment
+          # Injects secrets securely into the Worker environment
           secrets: |
             SUPABASE_URL
             SUPABASE_SERVICE_ROLE_KEY
+            PI_API_KEY
         env:
           SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PI_API_KEY: ${{ secrets.PI_API_KEY }}

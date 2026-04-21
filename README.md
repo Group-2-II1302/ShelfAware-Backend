@@ -25,7 +25,10 @@ Create a `.dev.vars` file in the project root for local secrets (this file is gi
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-local-service-role-key
+PI_API_KEY=any-string-for-local-dev
 ```
+
+`PI_API_KEY` is the shared secret the Raspberry Pi uses to authenticate against the backend (`Authorization: Bearer <key>`). In production it's set via Cloudflare secrets; in CI it's pushed by the deploy workflow from the `PI_API_KEY` GitHub secret.
 
 Non-secret config lives in `wrangler.jsonc` under `vars`. After changing `vars`, secrets, or bindings, regenerate the `Env` type:
 
@@ -57,9 +60,17 @@ Feature routes (telemetry, shelves, auth) will be added in follow-up branches.
 
 ```
 src/
-  index.ts          # Hono app: middleware, health, error handling
+  index.ts              # Hono app: middleware, health, error handling
+  lib/
+    supabase.ts         # getSupabase(env) factory (service-role client)
+  middleware/
+    auth.ts             # requireDeviceAuth: Bearer token check for the Pi
+  types/
+    supabase.ts         # Generated Database types from Supabase
 test/
-  index.spec.ts     # Smoke tests against the Hono app
-wrangler.jsonc      # Worker config + non-secret vars
+  index.spec.ts         # Smoke tests against the Hono app
+  lib/supabase.spec.ts  # Tests for the Supabase client helper
+  middleware/auth.spec.ts  # Tests for the M2M auth middleware
+wrangler.jsonc          # Worker config + non-secret vars
 worker-configuration.d.ts  # Generated Env type (from cf-typegen)
 ```
