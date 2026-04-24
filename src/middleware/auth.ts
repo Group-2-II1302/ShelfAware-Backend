@@ -55,13 +55,24 @@ export const requireDeviceAuth = createMiddleware<{ Bindings: DeviceAuthEnv }>(a
 
 	const shelfIdHeader = c.req.header('X-Shelf-Id');
 	if (shelfIdHeader && UUID_PATTERN.test(shelfIdHeader) && c.env.PUBLIC_SUPABASE_URL && c.env.SUPABASE_SERVICE_ROLE_KEY) {
-		const supabase = getSupabase(c.env);
-		// Wrap the Supabase builder's PromiseLike in a real Promise for waitUntil,
-		// which only accepts a proper Promise.
-		const update = Promise.resolve(supabase.from('shelves').update({ last_seen: new Date().toISOString() }).eq('id', shelfIdHeader)).then(
-			() => undefined,
-		);
-		c.executionCtx.waitUntil(update);
+		// Test harnesses (app.request(url, init, env)) don't provide an ExecutionContext,
+		// and accessing c.executionCtx throws. Skip the presence bump in that case —
+		// the behavior we care about in tests is auth outcomes, not the side effect.
+		let execCtx: typeof c.executionCtx | undefined;
+		try {
+			execCtx = c.executionCtx;
+		} catch {
+			execCtx = undefined;
+		}
+		if (execCtx) {
+			const supabase = getSupabase(c.env);
+			// Wrap the Supabase builder's PromiseLike in a real Promise for waitUntil,
+			// which only accepts a proper Promise.
+			const update = Promise.resolve(supabase.from('shelves').update({ last_seen: new Date().toISOString() }).eq('id', shelfIdHeader)).then(
+				() => undefined,
+			);
+			execCtx.waitUntil(update);
+		}
 	}
 
 	await next();

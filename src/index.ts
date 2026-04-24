@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { HTTPException } from 'hono/http-exception';
 import telemetry from './routes/telemetry';
+import commands from './routes/commands';
 
 /**
  * Request-scoped values set via c.set(...) in middleware (e.g. an authenticated user).
@@ -36,6 +37,7 @@ app.get('/health', (c) =>
 );
 
 app.route('/', telemetry);
+app.route('/', commands);
 
 app.onError((err, c) => {
 	if (err instanceof HTTPException) {
