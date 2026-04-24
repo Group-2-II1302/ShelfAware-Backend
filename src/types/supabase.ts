@@ -304,6 +304,7 @@ export type Database = {
 					item_id: string;
 					reading_id: string | null;
 					recorded_at: string | null;
+					sampled_at: string | null;
 					state: number | null;
 					weight_g: number;
 				};
@@ -312,6 +313,7 @@ export type Database = {
 					item_id: string;
 					reading_id?: string | null;
 					recorded_at?: string | null;
+					sampled_at?: string | null;
 					state?: number | null;
 					weight_g: number;
 				};
@@ -320,6 +322,7 @@ export type Database = {
 					item_id?: string;
 					reading_id?: string | null;
 					recorded_at?: string | null;
+					sampled_at?: string | null;
 					state?: number | null;
 					weight_g?: number;
 				};
