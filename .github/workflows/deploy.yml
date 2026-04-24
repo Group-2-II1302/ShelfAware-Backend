@@ -52,10 +52,10 @@ jobs:
           command: deploy ${{ github.event_name == 'pull_request' && format('--name {0}-pr-{1}', vars.PROJECT_NAME, github.event.pull_request.number) || '' }}
           # Injects secrets securely into the Worker environment
           secrets: |
-            SUPABASE_URL
+            PUBLIC_SUPABASE_URL
             SUPABASE_SERVICE_ROLE_KEY
             PI_API_KEY
         env:
-          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PI_API_KEY: ${{ secrets.PI_API_KEY }}

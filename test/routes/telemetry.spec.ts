@@ -78,7 +78,7 @@ import app from '../../src/index';
 const PI_API_KEY = 'test-pi-key-123';
 const ENV = {
 	PI_API_KEY,
-	SUPABASE_URL: 'https://example.supabase.co',
+	PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
 	SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
 };
 

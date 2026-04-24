@@ -54,7 +54,7 @@ export const requireDeviceAuth = createMiddleware<{ Bindings: DeviceAuthEnv }>(a
 	}
 
 	const shelfIdHeader = c.req.header('X-Shelf-Id');
-	if (shelfIdHeader && UUID_PATTERN.test(shelfIdHeader) && c.env.SUPABASE_URL && c.env.SUPABASE_SERVICE_ROLE_KEY) {
+	if (shelfIdHeader && UUID_PATTERN.test(shelfIdHeader) && c.env.PUBLIC_SUPABASE_URL && c.env.SUPABASE_SERVICE_ROLE_KEY) {
 		const supabase = getSupabase(c.env);
 		// Wrap the Supabase builder's PromiseLike in a real Promise for waitUntil,
 		// which only accepts a proper Promise.
