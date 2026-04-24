@@ -49,28 +49,43 @@ npm run cf-typegen
 
 ## Routes
 
-| Method | Path      | Description                                     |
-| ------ | --------- | ----------------------------------------------- |
-| `GET`  | `/`       | Service identity string                         |
-| `GET`  | `/health` | Liveness probe; returns `{ status, timestamp }` |
+| Method | Path         | Auth                | Description                                                        |
+| ------ | ------------ | ------------------- | ------------------------------------------------------------------ |
+| `GET`  | `/`          | none                | Service identity string                                            |
+| `GET`  | `/health`    | none                | Liveness probe; returns `{ status, timestamp }`                    |
+| `POST` | `/telemetry` | `Bearer PI_API_KEY` | Pi pushes a batch of weight readings. Idempotent by `reading_id`.  |
+| `GET`  | `/commands`  | `Bearer PI_API_KEY` | Pi short-polls for pending `wake` commands. At-most-once delivery. |
 
-Feature routes (telemetry, shelves, auth) will be added in follow-up branches.
+See [`docs/pi-contract.md`](docs/pi-contract.md) for the full Pi ↔ backend data contract, including request/response shapes, wake/sleep ownership, and the frontend's direct-to-Supabase write path for enqueuing wake commands.
 
 ## Project layout
 
 ```
 src/
-  index.ts              # Hono app: middleware, health, error handling
+  index.ts              # Hono app: middleware, health, error handling, route mounting
   lib/
     supabase.ts         # getSupabase(env) factory (service-role client)
+    state.ts            # computeState() — est_grams → fullness ratio
   middleware/
-    auth.ts             # requireDeviceAuth: Bearer token check for the Pi
+    auth.ts             # requireDeviceAuth + shelves.last_seen presence bump
+  routes/
+    telemetry.ts        # POST /telemetry
+    commands.ts         # GET /commands
+  schemas/
+    telemetry.ts        # Zod schema for the telemetry payload
+    commands.ts         # Zod schema / DTOs for the commands response
   types/
     supabase.ts         # Generated Database types from Supabase
 test/
-  index.spec.ts         # Smoke tests against the Hono app
-  lib/supabase.spec.ts  # Tests for the Supabase client helper
-  middleware/auth.spec.ts  # Tests for the M2M auth middleware
-wrangler.jsonc          # Worker config + non-secret vars
-worker-configuration.d.ts  # Generated Env type (from cf-typegen)
+  index.spec.ts             # Smoke tests against the Hono app
+  lib/state.spec.ts         # computeState unit tests
+  lib/supabase.spec.ts      # Supabase client helper
+  middleware/auth.spec.ts   # M2M auth middleware
+  routes/telemetry.spec.ts  # POST /telemetry integration tests
+  routes/commands.spec.ts   # GET /commands integration tests
+  schemas/telemetry.spec.ts # Telemetry Zod schema unit tests
+docs/
+  pi-contract.md            # Pi ↔ backend data contract
+wrangler.jsonc              # Worker config + non-secret vars
+worker-configuration.d.ts   # Generated Env type (from cf-typegen)
 ```
