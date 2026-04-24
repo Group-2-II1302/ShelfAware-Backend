@@ -4,7 +4,7 @@ import type { Database } from '../types/supabase';
 export type ShelfAwareSupabaseClient = SupabaseClient<Database>;
 
 export interface SupabaseEnv {
-	SUPABASE_URL: string;
+	PUBLIC_SUPABASE_URL: string;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 }
 
@@ -15,7 +15,7 @@ export interface SupabaseEnv {
  * clients would leak auth state across requests in the same isolate.
  */
 export function getSupabase(env: SupabaseEnv): ShelfAwareSupabaseClient {
-	return createClient<Database, 'public'>(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+	return createClient<Database, 'public'>(env.PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
 		auth: {
 			persistSession: false,
 			autoRefreshToken: false,

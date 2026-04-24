@@ -23,7 +23,7 @@ npm install
 Create a `.dev.vars` file in the project root for local secrets (this file is gitignored):
 
 ```
-SUPABASE_URL=https://your-project.supabase.co
+PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-local-service-role-key
 PI_API_KEY=any-string-for-local-dev
 ```
