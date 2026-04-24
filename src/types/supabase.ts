@@ -65,6 +65,44 @@ export type Database = {
 					},
 				];
 			};
+			pi_commands: {
+				Row: {
+					command: string;
+					created_at: string;
+					delivered_at: string | null;
+					expires_at: string;
+					id: string;
+					payload: Json | null;
+					shelf_id: string;
+				};
+				Insert: {
+					command: string;
+					created_at?: string;
+					delivered_at?: string | null;
+					expires_at?: string;
+					id?: string;
+					payload?: Json | null;
+					shelf_id: string;
+				};
+				Update: {
+					command?: string;
+					created_at?: string;
+					delivered_at?: string | null;
+					expires_at?: string;
+					id?: string;
+					payload?: Json | null;
+					shelf_id?: string;
+				};
+				Relationships: [
+					{
+						foreignKeyName: 'pi_commands_shelf_id_fkey';
+						columns: ['shelf_id'];
+						isOneToOne: false;
+						referencedRelation: 'shelves';
+						referencedColumns: ['id'];
+					},
+				];
+			};
 			product_catalog: {
 				Row: {
 					barcode: string;
@@ -237,6 +275,7 @@ export type Database = {
 				Row: {
 					created_at: string | null;
 					id: string;
+					last_seen: string | null;
 					last_synced_at: string | null;
 					metadata: Json | null;
 					name: string;
@@ -244,6 +283,7 @@ export type Database = {
 				Insert: {
 					created_at?: string | null;
 					id?: string;
+					last_seen?: string | null;
 					last_synced_at?: string | null;
 					metadata?: Json | null;
 					name: string;
@@ -251,6 +291,7 @@ export type Database = {
 				Update: {
 					created_at?: string | null;
 					id?: string;
+					last_seen?: string | null;
 					last_synced_at?: string | null;
 					metadata?: Json | null;
 					name?: string;
@@ -261,19 +302,25 @@ export type Database = {
 				Row: {
 					id: string;
 					item_id: string;
+					reading_id: string | null;
 					recorded_at: string | null;
+					state: number | null;
 					weight_g: number;
 				};
 				Insert: {
 					id?: string;
 					item_id: string;
+					reading_id?: string | null;
 					recorded_at?: string | null;
+					state?: number | null;
 					weight_g: number;
 				};
 				Update: {
 					id?: string;
 					item_id?: string;
+					reading_id?: string | null;
 					recorded_at?: string | null;
+					state?: number | null;
 					weight_g?: number;
 				};
 				Relationships: [
