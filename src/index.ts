@@ -35,7 +35,7 @@ app.get('/health', (c) =>
 	}),
 );
 
-app.route('/telemetry', telemetry);
+app.route('/', telemetry);
 
 app.onError((err, c) => {
 	if (err instanceof HTTPException) {

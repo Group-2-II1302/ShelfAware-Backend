@@ -36,7 +36,7 @@ interface ShelfItemLookup {
 
 const telemetry = new Hono<{ Bindings: DeviceAuthEnv }>();
 
-telemetry.post('/', requireDeviceAuth, zValidator('json', TelemetryPayloadSchema), async (c) => {
+telemetry.post('/telemetry', requireDeviceAuth, zValidator('json', TelemetryPayloadSchema), async (c) => {
 	const payload = c.req.valid('json') as TelemetryPayload;
 
 	// Hard-reject batches with a future sampled_at. A skewed clock is a bug,
