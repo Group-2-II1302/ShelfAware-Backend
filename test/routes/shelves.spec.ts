@@ -311,3 +311,111 @@ describe('GET /shelves/:shelfId', () => {
 		expect((userIdEq!.args as unknown[])[1]).toBe(OTHER_USER_ID);
 	});
 });
+
+describe('GET /shelves (list)', () => {
+	beforeEach(() => {
+		resetMock();
+	});
+
+	function listShelves(headers: Record<string, string> = {}) {
+		return app.request(
+			'/shelves',
+			{
+				method: 'GET',
+				headers: {
+					Authorization: `Bearer ${USER_TOKEN}`,
+					...headers,
+				},
+			},
+			ENV,
+		);
+	}
+
+	it('returns 401 when Authorization header is missing', async () => {
+		const res = await app.request('/shelves', { method: 'GET' }, ENV);
+		expect(res.status).toBe(401);
+	});
+
+	it('returns 401 when the user JWT is rejected by Supabase', async () => {
+		getUserImpl = async () => ({ data: null, error: { message: 'invalid' } });
+
+		const res = await listShelves();
+		expect(res.status).toBe(401);
+	});
+
+	it('returns an empty array when the user is not a member of any shelves', async () => {
+		resetMock({ shelf_members_select: { data: [], error: null } });
+
+		const res = await listShelves();
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { shelves: unknown[] };
+		expect(body.shelves).toEqual([]);
+	});
+
+	it('returns shelves the user is a member of, sorted newest-first', async () => {
+		resetMock({
+			shelf_members_select: {
+				data: [
+					{ shelves: { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', name: 'Older shelf', created_at: '2026-04-01T00:00:00Z' } },
+					{ shelves: { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'Newest shelf', created_at: '2026-05-01T00:00:00Z' } },
+					{ shelves: { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', name: 'Middle shelf', created_at: '2026-04-15T00:00:00Z' } },
+				],
+				error: null,
+			},
+		});
+
+		const res = await listShelves();
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { shelves: Array<{ shelf_id: string; name: string; created_at: string | null }> };
+		expect(body.shelves).toHaveLength(3);
+		expect(body.shelves[0].name).toBe('Newest shelf');
+		expect(body.shelves[1].name).toBe('Middle shelf');
+		expect(body.shelves[2].name).toBe('Older shelf');
+	});
+
+	it('handles the join shape when Supabase returns the related row as an array', async () => {
+		resetMock({
+			shelf_members_select: {
+				data: [{ shelves: [{ id: SHELF_ID, name: 'Array-shaped', created_at: '2026-05-01T00:00:00Z' }] }],
+				error: null,
+			},
+		});
+
+		const res = await listShelves();
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { shelves: Array<{ shelf_id: string }> };
+		expect(body.shelves).toHaveLength(1);
+		expect(body.shelves[0].shelf_id).toBe(SHELF_ID);
+	});
+
+	it('skips rows whose joined shelves entry is null (defensive)', async () => {
+		resetMock({
+			shelf_members_select: {
+				data: [{ shelves: null }, { shelves: { id: SHELF_ID, name: 'Real one', created_at: '2026-05-01T00:00:00Z' } }],
+				error: null,
+			},
+		});
+
+		const res = await listShelves();
+		const body = (await res.json()) as { shelves: unknown[] };
+		expect(body.shelves).toHaveLength(1);
+	});
+
+	it('scopes the membership lookup to the authenticated user', async () => {
+		resetMock({ shelf_members_select: { data: [], error: null } });
+		getUserImpl = async () => ({ data: { user: { id: OTHER_USER_ID } }, error: null });
+
+		await listShelves();
+
+		const eqCall = mockCalls.find((c) => c.table === 'shelf_members' && c.op === 'select:eq');
+		expect(eqCall).toBeDefined();
+		expect(eqCall!.args).toEqual(['user_id', OTHER_USER_ID]);
+	});
+
+	it('returns 500 when the membership query fails', async () => {
+		resetMock({ shelf_members_select: { data: null, error: { message: 'boom' } } });
+
+		const res = await listShelves();
+		expect(res.status).toBe(500);
+	});
+});

@@ -4,7 +4,14 @@ import { zValidator } from '@hono/zod-validator';
 import { requireDeviceAuth, type DeviceAuthEnv } from '../middleware/auth';
 import { requireUserAuth, type UserAuthVariables } from '../middleware/userAuth';
 import { getSupabase } from '../lib/supabase';
-import { ShelfRegistrationPayloadSchema, ShelfIdParamSchema, type ShelfResponse, type ShelfItemDTO } from '../schemas/shelves';
+import {
+	ShelfRegistrationPayloadSchema,
+	ShelfIdParamSchema,
+	type ShelfResponse,
+	type ShelfItemDTO,
+	type ShelfListResponse,
+	type ShelfSummaryDTO,
+} from '../schemas/shelves';
 
 /**
  * New self-registered shelves get this role on shelf_members. The user that
@@ -84,6 +91,71 @@ shelves.post('/shelves', requireDeviceAuth, zValidator('json', ShelfRegistration
 	}
 
 	return c.json({ shelf_id });
+});
+
+/**
+ * GET /shelves — list all shelves the authenticated user is a member of.
+ *
+ * Primary use case (today): the companion app's provisioning poller takes a
+ * snapshot of `shelf_id`s before the user joins the Pi's captive portal, then
+ * polls this endpoint every few seconds during provisioning. The first
+ * `shelf_id` that appears in the polled list but wasn't in the snapshot is
+ * the freshly registered Pi.
+ *
+ * Snapshot-diff is preferred over a `created_at > <provisioning_started>`
+ * filter because:
+ *  - Set difference on UUIDs is immune to clock skew between the browser and
+ *    the database.
+ *  - It tolerates a friend inviting the user to an unrelated shelf
+ *    mid-provisioning — the new shelf still appears as a single-element delta.
+ *
+ * Secondary use case (future): power the main UI's shelf-list page. That's
+ * why we include `name` and `created_at` even though the poller only needs
+ * `shelf_id`.
+ *
+ * Ordered by `shelves.created_at DESC` so the most recently registered shelf
+ * (the one the user is provisioning right now) is at index 0 — a small
+ * affordance for naive consumers that don't bother with snapshot-diffing.
+ */
+shelves.get('/shelves', requireUserAuth, async (c) => {
+	const userId = c.get('userId');
+	const supabase = getSupabase(c.env);
+
+	// Single round-trip: pull membership rows for this user and inline-join
+	// the shelves they refer to. We project only the fields ShelfSummaryDTO
+	// needs, since this endpoint is intended for frequent polling.
+	const { data, error } = await supabase.from('shelf_members').select('shelves!inner(id, name, created_at)').eq('user_id', userId);
+
+	if (error) {
+		console.error('shelf_members list failed', error);
+		throw new HTTPException(500, { message: 'Failed to list shelves' });
+	}
+
+	// Supabase types the joined relation as either a single row or an array
+	// depending on the FK; defensively normalise so we never silently drop a
+	// shelf if the inferred shape changes after a future schema regeneration.
+	const summaries: ShelfSummaryDTO[] = [];
+	for (const row of data ?? []) {
+		const joined = (row as { shelves: unknown }).shelves;
+		const shelfRow = (Array.isArray(joined) ? joined[0] : joined) as
+			| { id: string; name: string; created_at: string | null }
+			| null
+			| undefined;
+		if (!shelfRow) continue;
+		summaries.push({ shelf_id: shelfRow.id, name: shelfRow.name, created_at: shelfRow.created_at });
+	}
+
+	// Most recent first. We sort in JS (rather than asking Postgres to ORDER BY
+	// shelves.created_at) because Supabase's PostgREST doesn't expose ordering
+	// on joined columns cleanly — and the typical user has <10 shelves.
+	summaries.sort((a, b) => {
+		const aT = a.created_at ?? '';
+		const bT = b.created_at ?? '';
+		return bT.localeCompare(aT);
+	});
+
+	const response: ShelfListResponse = { shelves: summaries };
+	return c.json(response);
 });
 
 /**
