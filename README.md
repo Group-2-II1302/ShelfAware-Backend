@@ -49,14 +49,19 @@ npm run cf-typegen
 
 ## Routes
 
-| Method | Path         | Auth                | Description                                                        |
-| ------ | ------------ | ------------------- | ------------------------------------------------------------------ |
-| `GET`  | `/`          | none                | Service identity string                                            |
-| `GET`  | `/health`    | none                | Liveness probe; returns `{ status, timestamp }`                    |
-| `POST` | `/telemetry` | `Bearer PI_API_KEY` | Pi pushes a batch of weight readings. Idempotent by `reading_id`.  |
-| `GET`  | `/commands`  | `Bearer PI_API_KEY` | Pi short-polls for pending `wake` commands. At-most-once delivery. |
+| Method | Path                 | Auth                | Description                                                               |
+| ------ | -------------------- | ------------------- | ------------------------------------------------------------------------- |
+| `GET`  | `/`                  | none                | Service identity string                                                   |
+| `GET`  | `/health`            | none                | Liveness probe; returns `{ status, timestamp }`                           |
+| `POST` | `/telemetry`         | `Bearer PI_API_KEY` | Pi pushes a batch of weight readings. Idempotent by `reading_id`.         |
+| `GET`  | `/commands`          | `Bearer PI_API_KEY` | Pi short-polls for pending `wake` commands. At-most-once delivery.        |
+| `POST` | `/shelves`           | `Bearer PI_API_KEY` | Pi self-registers, binding the shelf to a user. Idempotent on `shelf_id`. |
+| `GET`  | `/shelves/:shelf_id` | `Bearer <user JWT>` | Companion app reads shelf membership + items. 404 if not a member.        |
 
-See [`docs/pi-contract.md`](docs/pi-contract.md) for the full Pi ↔ backend data contract, including request/response shapes, wake/sleep ownership, and the frontend's direct-to-Supabase write path for enqueuing wake commands.
+See:
+
+- [`docs/pi-contract.md`](docs/pi-contract.md) — Pi ↔ backend data contract for `/telemetry` and `/commands`.
+- [`docs/shelves-contract.md`](docs/shelves-contract.md) — provisioning + shelf-detail contract for `/shelves`.
 
 ## Project layout
 
@@ -68,12 +73,15 @@ src/
     state.ts            # computeState() — est_grams → fullness ratio
   middleware/
     auth.ts             # requireDeviceAuth + shelves.last_seen presence bump
+    userAuth.ts         # requireUserAuth — verifies Supabase user JWTs
   routes/
     telemetry.ts        # POST /telemetry
     commands.ts         # GET /commands
+    shelves.ts          # POST /shelves + GET /shelves/:shelf_id
   schemas/
     telemetry.ts        # Zod schema for the telemetry payload
     commands.ts         # Zod schema / DTOs for the commands response
+    shelves.ts          # Zod schemas / DTOs for the shelves endpoints
   types/
     supabase.ts         # Generated Database types from Supabase
 test/
@@ -83,9 +91,11 @@ test/
   middleware/auth.spec.ts   # M2M auth middleware
   routes/telemetry.spec.ts  # POST /telemetry integration tests
   routes/commands.spec.ts   # GET /commands integration tests
+  routes/shelves.spec.ts    # POST /shelves + GET /shelves/:shelf_id tests
   schemas/telemetry.spec.ts # Telemetry Zod schema unit tests
 docs/
-  pi-contract.md            # Pi ↔ backend data contract
+  pi-contract.md            # Pi ↔ backend data contract (telemetry + commands)
+  shelves-contract.md       # /shelves provisioning + read contract
 wrangler.jsonc              # Worker config + non-secret vars
 worker-configuration.d.ts   # Generated Env type (from cf-typegen)
 ```

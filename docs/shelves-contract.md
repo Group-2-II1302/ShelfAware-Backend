@@ -1,0 +1,163 @@
+# Shelves Contract
+
+Endpoints for Pi self-registration and companion-app shelf reads.
+
+These power the provisioning loop: a fresh Pi receives WiFi credentials via the captive portal (Process C), then on every boot calls `POST /shelves` to bind itself to a user. The companion web app polls `GET /shelves/:shelf_id` after submitting credentials to detect when registration succeeds.
+
+---
+
+## Auth surfaces
+
+This is the first endpoint family with **two** distinct auth schemes. Don't mix them.
+
+| Caller         | Header                                      | Verified by                                     |
+| -------------- | ------------------------------------------- | ----------------------------------------------- |
+| Raspberry Pi   | `Authorization: Bearer <PI_API_KEY>`        | `requireDeviceAuth` (timing-safe shared-secret) |
+| Logged-in user | `Authorization: Bearer <Supabase user JWT>` | `requireUserAuth` (Supabase `auth.getUser`)     |
+
+`PI_API_KEY` is the same shared secret used by `/telemetry` and `/commands`. The user JWT is whatever the SvelteKit frontend already gets from `supabase-js` after a sign-in (`session.access_token`).
+
+---
+
+## `POST /shelves` — Pi self-registration
+
+Process B calls this on every Pi startup. Idempotent on `shelf_id`. Treats every call as authoritative for ownership: whoever just provisioned the Pi via the captive portal is the new owner.
+
+### Request
+
+```http
+POST /shelves
+Authorization: Bearer <PI_API_KEY>
+X-Shelf-Id: <shelf UUIDv4>          # optional, only used for the existing presence-bump
+Content-Type: application/json
+
+{
+  "shelf_id": "32700001-a11c-4ab2-930c-1d4dd23f17cb",
+  "user_id":  "<supabase auth.users.id>"
+}
+```
+
+### Response — 200 OK
+
+```json
+{ "shelf_id": "32700001-a11c-4ab2-930c-1d4dd23f17cb" }
+```
+
+Process B only checks the echo. Extra fields may be added later without breaking it.
+
+### Error responses
+
+| Status | When                                            | Body                                       |
+| ------ | ----------------------------------------------- | ------------------------------------------ |
+| 400    | Missing fields, malformed JSON, non-UUID inputs | Zod validation error                       |
+| 401    | Missing or wrong `PI_API_KEY`                   | `{ "error": "Unauthorized" }`              |
+| 404    | `user_id` doesn't exist in `auth.users`         | `{ "message": "user_not_found" }`          |
+| 5xx    | Supabase write failure                          | Process B retries with exponential backoff |
+
+### Behavior
+
+Three sequential writes (no DB transaction — Supabase JS doesn't expose one):
+
+1. **Verify the user exists.** `auth.admin.getUserById(user_id)`. 404 if not.
+2. **Upsert `shelves`** with `id = shelf_id`, `name = "Shelf <first 6 chars of UUID>"`. The default name lets the user identify the row in the UI; they can rename it later.
+3. **Replace `shelf_members`** for the shelf:
+   - `DELETE shelf_members WHERE shelf_id = ?`
+   - `INSERT shelf_members (shelf_id, user_id, role = 'owner')`
+
+`shelf_items` rows are **not** auto-created. Items are attached via the future barcode/scan flow. Telemetry from unconfigured slots will continue to skip with `unknown_scale` until items exist.
+
+### Semantics
+
+- **Idempotent.** Two calls with the same `(shelf_id, user_id)` produce identical state.
+- **Ownership-replacing.** Calling with a different `user_id` for an existing shelf clears the old membership entirely. This is the "factory provisioning" semantic: the Pi knows who owns it because the user just configured it via the captive portal. Multi-user invites belong to a separate future endpoint that writes to `shelf_members` directly.
+- **`role = 'owner'`** for self-registration. Future invite flow defaults to `'member'`.
+- **Partial failure** between the `delete` and `insert` of `shelf_members` leaves the shelf orphaned (no members). The Pi retries on next boot, which fixes it. Acceptable because Process B is built to retry indefinitely with backoff.
+
+### Worked example
+
+```bash
+curl -X POST $BASE_URL/shelves \
+  -H "Authorization: Bearer $PI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shelf_id":"32700001-a11c-4ab2-930c-1d4dd23f17cb",
+    "user_id":"a4d6e1b0-1e8c-4f9b-b8a1-1234567890ab"
+  }'
+# → 200 OK
+# {"shelf_id":"32700001-a11c-4ab2-930c-1d4dd23f17cb"}
+```
+
+---
+
+## `GET /shelves/:shelf_id` — companion app / shelf-detail
+
+Used by:
+
+- **Companion app provisioning poller.** Calls every 3-5s for ~60-90s after the user submits captive-portal credentials. Watches for the 404 → 200 transition that signals "the Pi has registered, setup is complete."
+- **Main shelf-detail UI.** Reads current per-slot weights.
+
+### Request
+
+```http
+GET /shelves/<shelf_id>
+Authorization: Bearer <Supabase user JWT>
+```
+
+### Response — 200 OK
+
+```json
+{
+	"shelf_id": "32700001-a11c-4ab2-930c-1d4dd23f17cb",
+	"items": [
+		{ "scale_index": 0, "current_weight_g": 0 },
+		{ "scale_index": 1, "current_weight_g": 247.3 }
+	]
+}
+```
+
+`items` is sorted by `scale_index` ascending. The array is empty until products are attached via the barcode/scan flow.
+
+### Error responses
+
+| Status | When                                                                                           |
+| ------ | ---------------------------------------------------------------------------------------------- |
+| 401    | Missing JWT, invalid JWT, expired/revoked token                                                |
+| 404    | Shelf doesn't exist **or** the user is not a member of it (deliberately conflated — see below) |
+
+### Why 404, never 403
+
+When the user isn't in `shelf_members` for the shelf, the response is 404 instead of 403. This prevents enumeration: a malicious user can't probe the API to discover which `shelf_id`s exist for other accounts. "Doesn't exist" and "exists but not yours" are indistinguishable from outside.
+
+### Polling pattern (companion app)
+
+```ts
+async function pollUntilReady(shelfId: string, sessionJwt: string, timeoutMs = 90_000) {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		const res = await fetch(`${BASE_URL}/shelves/${shelfId}`, {
+			headers: { Authorization: `Bearer ${sessionJwt}` },
+		});
+		if (res.ok) return await res.json(); // setup complete
+		await new Promise((r) => setTimeout(r, 3_000));
+	}
+	throw new Error('Provisioning timed out');
+}
+```
+
+---
+
+## Out of scope
+
+These are deliberate omissions, planned for follow-up tasks:
+
+- **Claim codes.** Currently the Pi sends `user_id` directly. Future flow: web app mints a short-lived code, the Pi sends the code, backend exchanges it for `user_id`. Removes the need for the user to type a UUID into the captive portal.
+- **`DELETE /shelves/:shelf_id`** for "remove device" UX.
+- **Multi-user invite endpoint** that inserts `shelf_members` rows without clearing existing ones.
+- **`shelf_items` auto-create.** Items are attached via the barcode/scan flow instead.
+- **Sensor-fault visibility.** Process B currently silently drops readings flagged as `adc_fault`. Surfacing them needs a new field on `shelf_items` and a separate endpoint.
+
+---
+
+## Side effects (non-obvious)
+
+- `requireDeviceAuth` (the same middleware used by `/telemetry`) bumps `shelves.last_seen = now()` whenever a valid `X-Shelf-Id` header is present. So `POST /shelves` calls also serve as heartbeats once the row exists. The very first registration call's bump targets a row that didn't exist when queued — race-free no-op (the update affects 0 rows). Self-heals on subsequent calls.
