@@ -47,3 +47,24 @@ export interface ShelfResponse {
 	shelf_id: string;
 	items: ShelfItemDTO[];
 }
+
+/**
+ * One row in the GET /shelves (list) response.
+ *
+ * Lean by design — the primary consumer is the companion app's provisioning
+ * poller, which only needs `shelf_id` to do snapshot-diff detection of "the
+ * Pi just registered." `name` and `created_at` are included so the same
+ * endpoint can also power the main UI's shelf list without an immediate
+ * follow-up query.
+ *
+ * Add fields here cautiously: every byte travels on every poll request.
+ */
+export interface ShelfSummaryDTO {
+	shelf_id: string;
+	name: string;
+	created_at: string | null;
+}
+
+export interface ShelfListResponse {
+	shelves: ShelfSummaryDTO[];
+}

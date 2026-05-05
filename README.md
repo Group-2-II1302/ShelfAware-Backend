@@ -49,14 +49,15 @@ npm run cf-typegen
 
 ## Routes
 
-| Method | Path                 | Auth                | Description                                                               |
-| ------ | -------------------- | ------------------- | ------------------------------------------------------------------------- |
-| `GET`  | `/`                  | none                | Service identity string                                                   |
-| `GET`  | `/health`            | none                | Liveness probe; returns `{ status, timestamp }`                           |
-| `POST` | `/telemetry`         | `Bearer PI_API_KEY` | Pi pushes a batch of weight readings. Idempotent by `reading_id`.         |
-| `GET`  | `/commands`          | `Bearer PI_API_KEY` | Pi short-polls for pending `wake` commands. At-most-once delivery.        |
-| `POST` | `/shelves`           | `Bearer PI_API_KEY` | Pi self-registers, binding the shelf to a user. Idempotent on `shelf_id`. |
-| `GET`  | `/shelves/:shelf_id` | `Bearer <user JWT>` | Companion app reads shelf membership + items. 404 if not a member.        |
+| Method | Path                 | Auth                | Description                                                                                  |
+| ------ | -------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
+| `GET`  | `/`                  | none                | Service identity string                                                                      |
+| `GET`  | `/health`            | none                | Liveness probe; returns `{ status, timestamp }`                                              |
+| `POST` | `/telemetry`         | `Bearer PI_API_KEY` | Pi pushes a batch of weight readings. Idempotent by `reading_id`.                            |
+| `GET`  | `/commands`          | `Bearer PI_API_KEY` | Pi short-polls for pending `wake` commands. At-most-once delivery.                           |
+| `POST` | `/shelves`           | `Bearer PI_API_KEY` | Pi self-registers, binding the shelf to a user. Idempotent on `shelf_id`.                    |
+| `GET`  | `/shelves`           | `Bearer <user JWT>` | List shelves the user is a member of. Powers companion-app provisioning poll + main UI list. |
+| `GET`  | `/shelves/:shelf_id` | `Bearer <user JWT>` | Companion app reads shelf membership + items. 404 if not a member.                           |
 
 See:
 
