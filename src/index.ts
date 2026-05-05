@@ -4,12 +4,14 @@ import { logger } from 'hono/logger';
 import { HTTPException } from 'hono/http-exception';
 import telemetry from './routes/telemetry';
 import commands from './routes/commands';
+import shelves from './routes/shelves';
+import type { UserAuthVariables } from './middleware/userAuth';
 
 /**
  * Request-scoped values set via c.set(...) in middleware (e.g. an authenticated user).
  * Add fields here as middleware is introduced.
  */
-type Variables = {};
+type Variables = Partial<UserAuthVariables>;
 
 /**
  * The global `Env` type is generated from wrangler.jsonc by `npm run cf-typegen`.
@@ -38,6 +40,7 @@ app.get('/health', (c) =>
 
 app.route('/', telemetry);
 app.route('/', commands);
+app.route('/', shelves);
 
 app.onError((err, c) => {
 	if (err instanceof HTTPException) {
